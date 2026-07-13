@@ -1,19 +1,32 @@
 # Prometheus Protocol Skills
 
-Practical skills and playbooks for building MCP servers for Prometheus Protocol and hosting/deploying them with ICForge.
+Agent skills for building MCP servers for Prometheus Protocol and hosting/deploying them with ICForge.
+
+Each skill lives in its own directory under `skills/` as a `SKILL.md` with YAML frontmatter, following the [Claude Code skills format](https://code.claude.com/docs/en/skills) — so Claude discovers and invokes them automatically when the task matches.
 
 ## Included skills
 
-- [`skills/build-prometheus-icp-mcp-server.md`](skills/build-prometheus-icp-mcp-server.md)
+- [`skills/build-prometheus-icp-mcp-server/SKILL.md`](skills/build-prometheus-icp-mcp-server/SKILL.md)
   - End-to-end workflow for scaffolding, implementing, building, deploying, configuring, registering, and QA'ing a Prometheus Protocol MCP server on ICP.
-- [`skills/byoc.md`](skills/byoc.md)
-  - Bring-your-own-canister registration workflow for publishing an externally deployed canister to Prometheus Protocol and wiring ICForge CI/CD.
+- [`skills/byoc/SKILL.md`](skills/byoc/SKILL.md)
+  - Bring-your-own-canister registration workflow for publishing an externally deployed canister to Prometheus Protocol and wiring ICForge CI/CD. Also owns asset generation, the GitHub release, and the `prometheus.yml` manifest — the build skill delegates its registration phase here.
+
+## Installation
+
+Copy the skill directories into your project's `.claude/skills/` (or `~/.claude/skills/` to make them available everywhere):
+
+```bash
+mkdir -p .claude/skills
+cp -r skills/build-prometheus-icp-mcp-server skills/byoc .claude/skills/
+```
+
+Claude Code picks them up automatically — just describe what you want ("build me an MCP server for Prometheus Protocol", "register my canister in the app store") and the matching skill loads.
 
 ## Suggested usage
 
-1. Start with `build-prometheus-icp-mcp-server.md` if you're creating a new MCP server.
-2. Use `byoc.md` if you already have a deployed canister and want to register/update it in the Prometheus app store.
-3. Link the repo on [ICForge](https://icforge.dev) once your canister exists and ICForge has been added as a controller.
+1. Start with `build-prometheus-icp-mcp-server` if you're creating a new MCP server. It covers everything from scaffold to a live, QA'd app store listing.
+2. Use `byoc` if you already have a deployed canister and want to register/update it in the Prometheus app store.
+3. Link the repo on [ICForge](https://icforge.dev) once your canister exists and ICForge has been added as a controller — this is the one manual browser step.
 
 ## Notes
 

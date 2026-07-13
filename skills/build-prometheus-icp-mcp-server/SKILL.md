@@ -1,49 +1,62 @@
+---
+name: build-prometheus-icp-mcp-server
+description: Build and ship a Prometheus Protocol MCP server on the Internet Computer (ICP), end to end - scaffold with create-motoko-mcp-server, implement tools in Motoko, deploy to mainnet, wire up ICForge CI/CD, enable the beacon, and register in the Prometheus app store. Use when the user wants to create, build, deploy, or publish a new MCP server for Prometheus Protocol, ICP, or ICForge.
+---
+
 # Build a Prometheus Protocol MCP Server on ICP
 
-End-to-end workflow: scaffold → implement tools → build → deploy via ICForge CI/CD → enable beacon → BYOC register → generate assets → GitHub release → QA via MCP client.
+End-to-end workflow: scaffold → implement tools → build → deploy via ICForge CI/CD → enable beacon → register in the app store → QA via MCP client.
 
 Uses `icp-cli` as the primary local toolchain and **ICForge** (<https://icforge.dev>) for automated mainnet CI/CD.
+
+## Working with the user
+
+This skill is often driven by non-technical users. Follow these rules:
+
+- **Gather everything upfront.** Before starting, ask for: the app name, a one-line description, the GitHub owner/repo to use, and (when you reach the release step) a GitHub PAT. Don't drip-feed questions mid-workflow.
+- **There are exactly two manual steps** the user must do in a browser — tell them clearly when each arrives:
+  1. Log in at <https://icforge.dev> with GitHub and connect the repo (Phase 4c).
+  2. Nothing else. Everything else you do for them.
+- **Handle secrets carefully.** Ask for the GitHub PAT only when needed, keep it in an environment variable for the session, and never write it into files, git config, or commit history.
+- **Report progress in plain language.** Say "your app is now live at …" — not raw command output. Use the checklist at the bottom to track and show progress.
+- **If a step fails, retry/diagnose yourself first** using the Pitfalls section before surfacing anything to the user.
 
 ## Phase 0: Environment Setup
 
 ### Install icp-cli + ic-wasm
 
 ```bash
-npm config set prefix /home/user/.npm-global
-export PATH=/home/user/.npm-global/bin:$PATH
+npm config set prefix "$HOME/.npm-global"
+export PATH="$HOME/.npm-global/bin:$PATH"
 npm install -g @icp-sdk/icp-cli @icp-sdk/ic-wasm
 icp --version
 icp settings telemetry false
 ```
 
-### Install mops
+### Install mops and app-store-cli
 
 ```bash
-npm install -g ic-mops
-```
-
-### Install app-store-cli
-
-```bash
-npm install -g @prometheus-protocol/app-store-cli@latest
+npm install -g ic-mops @prometheus-protocol/app-store-cli@latest
 ```
 
 ### Set PATH for all subsequent commands
 
+Every new shell needs this (or add it to the shell profile):
+
 ```bash
-export PATH=/home/user/.npm-global/bin:$PATH
+export PATH="$HOME/.npm-global/bin:$PATH"
 ```
 
 ### Identity setup
 
-icp-cli has its own identity store. In headless/sandbox environments, use plaintext storage:
+icp-cli has its own identity store. In headless/sandbox environments, use plaintext storage (the OS keyring fails without X11/dbus):
 
 ```bash
 # New identity
 icp identity new myid --storage plaintext
 
 # Or import from existing dfx PEM
-icp identity import --from-pem /home/user/.config/dfx/identity/default/identity.pem --storage plaintext myid
+icp identity import --from-pem "$HOME/.config/dfx/identity/default/identity.pem" --storage plaintext myid
 
 # Set as default
 icp identity default myid
@@ -55,7 +68,7 @@ icp identity principal
 ```bash
 export DFXVM_INIT_YES=1
 sh -ci "$(curl -fsSL https://internetcomputer.org/install.sh)"
-source /home/user/.local/share/dfx/env
+source "$HOME/.local/share/dfx/env"
 ```
 
 ## Phase 1: Scaffold
@@ -244,12 +257,17 @@ dfx canister update-settings <canister-id> \
   --network ic
 ```
 
-### 4c. Link repo on ICForge
+**Do this BEFORE linking the repo on ICForge**, or builds will fail with permission errors.
+
+### 4c. Link repo on ICForge (user's manual step)
+
+Ask the user to:
 
 1. Go to <https://icforge.dev>
 2. Log in with GitHub
 3. Connect the repo
-4. ICForge will auto-detect `icp.yaml` and the canister
+
+ICForge will auto-detect `icp.yaml` and the canister. This is the only step you cannot do for them.
 
 ### 4d. Commit canister ID mapping
 
@@ -298,113 +316,17 @@ icp canister logs <canister-name> -e ic
 
 Should show: `Beacon submission timer started.`
 
-## Phase 6: Generate Assets & GitHub Release
+## Phase 6: Register in the App Store
 
-### Icon guidelines — CRITICAL
+Follow the **`byoc` skill** (`skills/byoc/SKILL.md`) for this entire phase — it owns asset generation (icon/banner), the GitHub release, the `prometheus.yml` manifest, and BYOC registration.
 
-- **No border radius / rounded corners** — the app store applies its own rounding
-- **No white background** — corners must be dark, not white
-- Image generators often produce icons with white backgrounds and rounded corners
-- **Fix:** Scale the source image to **120%**, then center-crop back to original size — this pushes the white corners off the canvas
+Notes specific to this workflow:
 
-### Generate icon (512×512) and banner (1600×900)
+- `prometheus.yml` was already scaffolded in Phase 1 — fill it in rather than creating from scratch.
+- The ICForge controller and repo link were already done in Phase 4 — skip those steps in the byoc skill.
+- Namespace convention: `io.github.<owner>.<app-name>`.
 
-Use image generation, then convert to webp with the 120% scale fix:
-
-```python
-from PIL import Image
-
-# Icon — scale 120% to push white corners off canvas
-img = Image.open('icon.png').convert('RGB')
-w, h = img.size
-scaled = img.resize((int(w * 1.2), int(h * 1.2)), Image.LANCZOS)
-left = (scaled.width - w) // 2
-top = (scaled.height - h) // 2
-cropped = scaled.crop((left, top, left + w, top + h))
-final = cropped.resize((512, 512), Image.LANCZOS)
-final.save('icon-<app-name>.webp', 'WEBP', quality=90, method=6)
-
-# Banner — same treatment if needed, or direct resize
-img = Image.open('banner.png').convert('RGB')
-img.thumbnail((1600, 900))
-canvas = Image.new('RGB', (1600, 900), (10, 12, 28))
-x = (1600 - img.width) // 2
-y = (900 - img.height) // 2
-canvas.paste(img, (x, y))
-canvas.save('banner-<app-name>.webp', 'WEBP', quality=90, method=6)
-```
-
-### Verify corners are dark (not white)
-
-```python
-for name, box in [('TL',(0,0,5,5)),('TR',(507,0,512,5)),('BL',(0,507,5,512)),('BR',(507,507,512,512))]:
-    corner = final.crop(box)
-    pixels = list(corner.getdata())
-    avg = tuple(sum(c)//len(pixels) for c in zip(*pixels))
-    assert not all(c > 240 for c in avg), f'{name} corner is white!'
-```
-
-### Create GitHub release via API
-
-```bash
-GH_TOKEN="<pat>"  REPO="<owner>/<repo>"  TAG="v0.1.0-assets"
-
-RELEASE=$(curl -s -X POST \
-  -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
-  https://api.github.com/repos/$REPO/releases \
-  -d "{\"tag_name\":\"$TAG\",\"name\":\"$TAG\",\"body\":\"Assets\",\"draft\":false,\"prerelease\":false}")
-RELEASE_ID=$(echo "$RELEASE" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
-
-for ASSET in icon banner; do
-  curl -s -X POST -H "Authorization: Bearer $GH_TOKEN" -H "Content-Type: image/webp" \
-    --data-binary @assets/${ASSET}-<app-name>.webp \
-    "https://uploads.github.com/repos/$REPO/releases/$RELEASE_ID/assets?name=${ASSET}-<app-name>.webp"
-done
-```
-
-## Phase 7: prometheus.yml & BYOC Registration
-
-### Full prometheus.yml template
-
-```yaml
-name: <app-name>
-namespace: io.github.<owner>.<app-name>
-title: <Title>
-version: 0.1.0
-description: Short description.
-category: <Category>
-mcp_path: /mcp
-repo_url: https://github.com/<owner>/<repo>
-payment: null
-tags: [tag1, tag2]
-submission:
-  name: <Title>
-  description: Short description.
-  publisher: <Publisher>
-  category: <Category>
-  deployment_type: global
-  repo_url: https://github.com/<owner>/<repo>
-  mcp_path: /mcp
-  why_this_app: Why agents or users should use this.
-  key_features:
-    - Feature one.
-    - Feature two.
-  tags: [tag1, tag2]
-  visuals:
-    icon_url: https://github.com/<owner>/<repo>/releases/download/<tag>/icon-<app-name>.webp
-    banner_url: https://github.com/<owner>/<repo>/releases/download/<tag>/banner-<app-name>.webp
-    gallery_images:
-      - https://github.com/<owner>/<repo>/releases/download/<tag>/banner-<app-name>.webp
-```
-
-### Register & verify
-
-```bash
-app-store-cli byoc register <canister-id> <namespace>
-icp canister call grhdx-gqaaa-aaaai-q32va-cai get_external_binding '("<namespace>")' -e ic
-```
-
-## Phase 8: QA via MCP Client
+## Phase 7: QA via MCP Client
 
 Connect to `https://<canister-id>.icp0.io/mcp` and run all tools sequentially.
 Look for `"freshness":"live-mainnet"` in responses.
@@ -435,8 +357,7 @@ Look for `"freshness":"live-mainnet"` in responses.
 8. **Keep dfx.json** — mops and local tooling still reference it.
 9. **Beacon must be enabled** — Scaffold has it commented out. Uncomment before deploy.
 10. **Don't derive MCP URL from namespace** — Use actual canister ID.
-11. **Asset URLs must match exactly** — prometheus.yml visual URLs must match GitHub release URLs character-for-character.
-12. **Icon white corners** — Image generators add white backgrounds with rounded corners. Fix by scaling source 120% then center-cropping back to original size. Always verify corners are dark (avg RGB < 240) before uploading.
+11. **Asset/registration pitfalls** — see the `byoc` skill's Pitfalls section (icon corners, URL matching, manifest requirements).
 
 ## Complete Checklist
 
@@ -454,16 +375,11 @@ Look for `"freshness":"live-mainnet"` in responses.
 - [ ] Tests pass locally
 - [ ] Initial `icp deploy -e ic` succeeds
 - [ ] ICForge principal added as controller via dfx
-- [ ] Repo linked on <https://icforge.dev>
+- [ ] Repo linked on <https://icforge.dev> (user's manual step)
 - [ ] `.icp/data/mappings/ic.ids.json` committed
 - [ ] Push to main triggers successful ICForge build
 - [ ] `set_live_mode(true)` called
 - [ ] `set_registry_canister_id` called
 - [ ] Logs show `Beacon submission timer started`
-- [ ] Icon (512×512 webp) generated — **corners verified dark, not white**
-- [ ] Banner (1600×900 webp) generated
-- [ ] GitHub release created with assets uploaded
-- [ ] `prometheus.yml` complete with submission block and matching visual URLs
-- [ ] BYOC registered
-- [ ] On-chain binding confirmed
+- [ ] App store registration complete (full checklist in the `byoc` skill)
 - [ ] MCP client connected and all tools return live data

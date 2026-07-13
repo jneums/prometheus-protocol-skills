@@ -11,6 +11,8 @@ Register an externally-deployed canister with the Prometheus app store for disco
 
 You have a canister deployed on ICP and want it discoverable through the Prometheus app store. The namespace must exist in the registry and you must be a controller.
 
+If the user is starting from scratch (no canister yet), use the `build-prometheus-icp-mcp-server` skill instead — there ICForge creates and deploys the canister, so no cycles or manual canister creation are needed. This skill never requires cycles either: registration calls are ordinary signed calls that cost the caller nothing.
+
 ## Working with the user
 
 This skill is often driven by non-technical users. Follow these rules:
@@ -157,9 +159,11 @@ Ensure prometheus.yml visual URLs match the resulting download URLs exactly, cha
 
 ## Step 4: Link repo to ICForge for CI/CD
 
-*(Skip this step if ICForge was already set up — e.g. you arrived here from the `build-prometheus-icp-mcp-server` skill.)*
+*(Skip this entire step if ICForge already manages the canister — e.g. you arrived here from the `build-prometheus-icp-mcp-server` skill, where ICForge created the canister itself and the repo is already linked.)*
 
 ### Add ICForge as a controller
+
+*(Only needed because this canister was created outside ICForge. When ICForge creates the canister, it is already a controller.)*
 
 ICForge principal: `hu6sm-q3tid-2vbh7-wy3qp-r776c-zakxe-iueaq-2bsxh-zkluq-5j6wi-kae`
 

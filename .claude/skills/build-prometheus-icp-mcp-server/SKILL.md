@@ -9,13 +9,16 @@ End-to-end workflow: scaffold → implement tools → build → deploy via ICFor
 
 Uses `icp-cli` as the primary local toolchain and **ICForge** (<https://icforge.dev>) for automated mainnet CI/CD.
 
+**ICForge creates the canister and handles all mainnet deployment.** The user never needs cycles, ICP tokens, a wallet, or to create a canister themselves. Never run `icp deploy -e ic` or any manual canister creation — if a step appears to require cycles or a funded identity, you've gone off-script.
+
 ## Working with the user
 
 This skill is often driven by non-technical users. Follow these rules:
 
 - **Gather everything upfront.** Before starting, ask for: the app name, a one-line description, the GitHub owner/repo to use, and (when you reach the release step) a GitHub PAT. Don't drip-feed questions mid-workflow.
+- **No cycles, tokens, or wallets — ever.** ICForge creates and deploys the canister. Do not ask the user to acquire cycles, fund an identity, or create a canister.
 - **There are exactly two manual steps** the user must do in a browser — tell them clearly when each arrives:
-  1. Log in at <https://icforge.dev> with GitHub and connect the repo (Phase 4c).
+  1. Log in at <https://icforge.dev> with GitHub and connect the repo (Phase 4b).
   2. Nothing else. Everything else you do for them.
 - **Handle secrets carefully.** Ask for the GitHub PAT only when needed, keep it in an environment variable for the session, and never write it into files, git config, or commit history.
 - **Report progress in plain language.** Say "your app is now live at …" — not raw command output. Use the checklist at the bottom to track and show progress.
@@ -49,7 +52,7 @@ export PATH="$HOME/.npm-global/bin:$PATH"
 
 ### Identity setup
 
-icp-cli has its own identity store. In headless/sandbox environments, use plaintext storage (the OS keyring fails without X11/dbus):
+An identity is needed for signing calls (canister config, BYOC registration) — it never needs cycles or funding. icp-cli has its own identity store. In headless/sandbox environments, use plaintext storage (the OS keyring fails without X11/dbus):
 
 ```bash
 # New identity
@@ -63,7 +66,7 @@ icp identity default myid
 icp identity principal
 ```
 
-### Legacy dfx (needed for update-settings and metadata queries)
+### Legacy dfx (optional — only for registry metadata queries in Phase 2)
 
 ```bash
 export DFXVM_INIT_YES=1
@@ -236,30 +239,13 @@ icp network stop
 
 ## Phase 4: Deploy to Mainnet via ICForge
 
-### 4a. Initial canister creation (one-time, local)
+**ICForge creates the canister on its own** the first time it builds the repo. Do NOT create a canister locally, do NOT run `icp deploy -e ic`, and do NOT touch cycles or wallets. The flow is: push the repo → link it on ICForge → ICForge creates the canister and deploys.
 
-```bash
-icp deploy <canister-name> -e ic
-```
+### 4a. Push the repo to GitHub
 
-This creates the canister and does the first install. Note the canister ID.
+`icp.yaml` (with the `@dfinity/motoko@v4.0.0` recipe) must be on `main` before linking — ICForge reads it to know what to build.
 
-### 4b. Add ICForge as a controller
-
-ICForge's principal: `hu6sm-q3tid-2vbh7-wy3qp-r776c-zakxe-iueaq-2bsxh-zkluq-5j6wi-kae`
-
-icp-cli doesn't have `update-settings` yet, so use dfx:
-
-```bash
-export DFX_WARNING=-mainnet_plaintext_identity
-dfx canister update-settings <canister-id> \
-  --add-controller hu6sm-q3tid-2vbh7-wy3qp-r776c-zakxe-iueaq-2bsxh-zkluq-5j6wi-kae \
-  --network ic
-```
-
-**Do this BEFORE linking the repo on ICForge**, or builds will fail with permission errors.
-
-### 4c. Link repo on ICForge (user's manual step)
+### 4b. Link repo on ICForge (user's manual step)
 
 Ask the user to:
 
@@ -267,19 +253,21 @@ Ask the user to:
 2. Log in with GitHub
 3. Connect the repo
 
-ICForge will auto-detect `icp.yaml` and the canister. This is the only step you cannot do for them.
+ICForge auto-detects `icp.yaml`, **creates the mainnet canister itself** (ICForge covers canister creation and cycles), and runs the first build + deploy. This is the only step you cannot do for them.
 
-### 4d. Commit canister ID mapping
+### 4c. Get the canister ID and commit the mapping
 
-Ensure `.icp/data/mappings/ic.ids.json` is committed:
+After the first successful deploy, the canister ID appears in the ICForge dashboard and build output. Commit it so local tooling can address the canister:
+
+`.icp/data/mappings/ic.ids.json`:
 
 ```json
 {"<canister-name>": "<canister-id>"}
 ```
 
-ICForge hydrates this from its DB, but having it in the repo ensures local deploys also work.
+ICForge hydrates this from its DB either way, but having it in the repo lets local `icp canister call` commands work.
 
-### 4e. Push to trigger builds
+### 4d. Pushes auto-deploy from here on
 
 Every push to `main` triggers ICForge to:
 
@@ -287,14 +275,14 @@ Every push to `main` triggers ICForge to:
 2. Build with `@dfinity/motoko@v4.0.0` recipe
 3. Deploy (upgrade) to mainnet automatically
 
-**No more manual `icp deploy -e ic` needed after this point.**
-
-### 4f. Configure live mode (one-time, after first deploy)
+### 4e. Configure live mode (one-time, after first deploy)
 
 ```bash
 icp canister call <canister-name> set_live_mode '(true)' -e ic
 icp canister call <canister-name> set_registry_canister_id '(principal "grhdx-gqaaa-aaaai-q32va-cai")' -e ic
 ```
+
+These are ordinary signed calls — they cost the caller nothing (canisters pay for their own execution on ICP), so no cycles are needed here either.
 
 ## Phase 5: Enable Beacon
 
@@ -323,7 +311,7 @@ Follow the **`byoc` skill** (invoke it, or read `.claude/skills/byoc/SKILL.md`) 
 Notes specific to this workflow:
 
 - `prometheus.yml` was already scaffolded in Phase 1 — fill it in rather than creating from scratch.
-- The ICForge controller and repo link were already done in Phase 4 — skip those steps in the byoc skill.
+- ICForge created the canister and already controls it, and the repo is already linked — skip the byoc skill's "Add ICForge as a controller" and "Link on ICForge" steps entirely (they exist only for canisters created outside ICForge).
 - Namespace convention: `io.github.<owner>.<app-name>`.
 
 ## Phase 7: QA via MCP Client
@@ -349,7 +337,7 @@ Look for `"freshness":"live-mainnet"` in responses.
 
 1. **MUST use Motoko recipe in icp.yaml** — Custom build scripts using `$(mops toolchain bin moc)` OOM in ICForge. The `@dfinity/motoko@v4.0.0` recipe handles everything automatically.
 2. **Recipe requires `args` field** — Even if empty, set `args: ""` or the recipe template fails with "Failed to access variable in strict mode".
-3. **Add ICForge controller BEFORE linking repo** — ICForge needs to be a controller to deploy. Use dfx since icp-cli lacks `update-settings`.
+3. **Never create the canister locally** — no `icp deploy -e ic`, no cycles, no wallet. Link the repo and let ICForge create + deploy the canister. (Adding ICForge as a controller manually is only for pre-existing canisters — see the byoc skill.)
 4. **ICForge may need multiple rebuild triggers** — Build dependency resolution can take several pushes. Use empty commits: `git commit --allow-empty -m "chore: trigger rebuild"`.
 5. **Registry type drift** — Always pull latest .did. Missing variants like `#External` cause IDL traps.
 6. **icp-cli identity in headless env** — Use `--storage plaintext`; keyring fails without X11/dbus.
@@ -373,11 +361,10 @@ Look for `"freshness":"live-mainnet"` in responses.
 - [ ] Beacon enabled in `main.mo`
 - [ ] `icp build` passes clean locally
 - [ ] Tests pass locally
-- [ ] Initial `icp deploy -e ic` succeeds
-- [ ] ICForge principal added as controller via dfx
-- [ ] Repo linked on <https://icforge.dev> (user's manual step)
-- [ ] `.icp/data/mappings/ic.ids.json` committed
-- [ ] Push to main triggers successful ICForge build
+- [ ] Repo pushed to GitHub with `icp.yaml` on `main`
+- [ ] Repo linked on <https://icforge.dev> (user's manual step) — ICForge creates the canister and runs the first deploy
+- [ ] Canister ID retrieved from ICForge and `.icp/data/mappings/ic.ids.json` committed
+- [ ] Subsequent pushes to main trigger successful ICForge builds
 - [ ] `set_live_mode(true)` called
 - [ ] `set_registry_canister_id` called
 - [ ] Logs show `Beacon submission timer started`

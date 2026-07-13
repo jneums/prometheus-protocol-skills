@@ -141,10 +141,10 @@ moc = "0.16.0"
 .env
 node_modules
 out/
-.icp/cache/
+.icp/
 ```
 
-Note: `.icp/data/mappings/` should NOT be gitignored — commit `ic.ids.json`.
+Note: the whole `.icp/` directory can be ignored — ICForge preserves the canister ID mapping itself; nothing under `.icp/` needs to be committed.
 
 ## Phase 2: Implement Tools
 
@@ -255,19 +255,9 @@ Ask the user to:
 
 ICForge auto-detects `icp.yaml`, **creates the mainnet canister itself** (ICForge covers canister creation and cycles), and runs the first build + deploy. This is the only step you cannot do for them.
 
-### 4c. Get the canister ID and commit the mapping
+ICForge preserves the canister ID mapping itself — do not create or commit `.icp/data/mappings/ic.ids.json`. When you need the canister ID (MCP URL, config calls, registration), read it from the ICForge dashboard or build output.
 
-After the first successful deploy, the canister ID appears in the ICForge dashboard and build output. Commit it so local tooling can address the canister:
-
-`.icp/data/mappings/ic.ids.json`:
-
-```json
-{"<canister-name>": "<canister-id>"}
-```
-
-ICForge hydrates this from its DB either way, but having it in the repo lets local `icp canister call` commands work.
-
-### 4d. Pushes auto-deploy from here on
+### 4c. Pushes auto-deploy from here on
 
 Every push to `main` triggers ICForge to:
 
@@ -275,12 +265,14 @@ Every push to `main` triggers ICForge to:
 2. Build with `@dfinity/motoko@v4.0.0` recipe
 3. Deploy (upgrade) to mainnet automatically
 
-### 4e. Configure live mode (one-time, after first deploy)
+### 4d. Configure live mode (one-time, after first deploy)
 
 ```bash
 icp canister call <canister-name> set_live_mode '(true)' -e ic
 icp canister call <canister-name> set_registry_canister_id '(principal "grhdx-gqaaa-aaaai-q32va-cai")' -e ic
 ```
+
+If the canister name doesn't resolve locally (the ID mapping lives in ICForge, not the repo), pass the canister ID directly instead of the name.
 
 These are ordinary signed calls — they cost the caller nothing (canisters pay for their own execution on ICP), so no cycles are needed here either.
 
@@ -341,7 +333,7 @@ Look for `"freshness":"live-mainnet"` in responses.
 4. **ICForge may need multiple rebuild triggers** — Build dependency resolution can take several pushes. Use empty commits: `git commit --allow-empty -m "chore: trigger rebuild"`.
 5. **Registry type drift** — Always pull latest .did. Missing variants like `#External` cause IDL traps.
 6. **icp-cli identity in headless env** — Use `--storage plaintext`; keyring fails without X11/dbus.
-7. **Commit `.icp/data/mappings/ic.ids.json`** — ICForge hydrates from its DB, but local deploys need this file.
+7. **Don't commit canister ID mappings** — ICForge preserves `ic.ids.json` itself; gitignore the whole `.icp/` directory. Get the canister ID from the ICForge dashboard when needed.
 8. **Keep dfx.json** — mops and local tooling still reference it.
 9. **Beacon must be enabled** — Scaffold has it commented out. Uncomment before deploy.
 10. **Don't derive MCP URL from namespace** — Use actual canister ID.
@@ -355,7 +347,7 @@ Look for `"freshness":"live-mainnet"` in responses.
 - [ ] `icp.yaml` uses `@dfinity/motoko@v4.0.0` recipe (NOT custom script)
 - [ ] `icp.yaml` has `args: ""` in recipe configuration
 - [ ] `dfx.json` kept for mops compatibility
-- [ ] `.gitignore` includes `.icp/cache/` but NOT `.icp/data/`
+- [ ] `.gitignore` includes `.icp/`
 - [ ] Tools implemented with adapter pattern (mock + live)
 - [ ] Registry types match latest .did (including `#External`)
 - [ ] Beacon enabled in `main.mo`
@@ -363,7 +355,7 @@ Look for `"freshness":"live-mainnet"` in responses.
 - [ ] Tests pass locally
 - [ ] Repo pushed to GitHub with `icp.yaml` on `main`
 - [ ] Repo linked on <https://icforge.dev> (user's manual step) — ICForge creates the canister and runs the first deploy
-- [ ] Canister ID retrieved from ICForge and `.icp/data/mappings/ic.ids.json` committed
+- [ ] Canister ID noted from the ICForge dashboard (nothing to commit — ICForge preserves the mapping)
 - [ ] Subsequent pushes to main trigger successful ICForge builds
 - [ ] `set_live_mode(true)` called
 - [ ] `set_registry_canister_id` called

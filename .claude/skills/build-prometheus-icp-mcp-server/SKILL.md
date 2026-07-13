@@ -318,7 +318,7 @@ Should show: `Beacon submission timer started.`
 
 ## Phase 6: Register in the App Store
 
-Follow the **`byoc` skill** (`skills/byoc/SKILL.md`) for this entire phase — it owns asset generation (icon/banner), the GitHub release, the `prometheus.yml` manifest, and BYOC registration.
+Follow the **`byoc` skill** (invoke it, or read `.claude/skills/byoc/SKILL.md`) for this entire phase — it owns asset generation (icon/banner), the GitHub release, the `prometheus.yml` manifest, and BYOC registration.
 
 Notes specific to this workflow:
 

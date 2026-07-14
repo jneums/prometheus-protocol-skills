@@ -9,7 +9,9 @@ End-to-end workflow: scaffold → implement tools → build → deploy via ICFor
 
 Uses `icp-cli` as the primary local toolchain and **ICForge** (<https://icforge.dev>) for automated mainnet CI/CD.
 
-**ICForge creates the canister and handles all mainnet deployment.** The user never touches cycles, ICP tokens, wallets, or canister creation themselves — ICForge manages cycles for them and bills usage against a prepaid account balance (pay-as-you-go / top-up model). New accounts need an initial **$10 top-up after signing up**; canister creation, deploys, and running costs draw from that balance. Never run `icp deploy -e ic` or any manual canister creation — if a step appears to require cycles or a funded ICP identity, you've gone off-script.
+**ICForge creates the canister and handles all mainnet deployment** (default path). The user never touches cycles, ICP tokens, wallets, or canister creation themselves — ICForge manages cycles for them and bills usage against a prepaid account balance (pay-as-you-go / top-up model). New accounts need an initial **$10 top-up after signing up**; canister creation, deploys, and running costs draw from that balance. On this path, never run `icp deploy -e ic` or any manual canister creation — if a step appears to require cycles or a funded ICP identity, you've gone off-script.
+
+**Self-managed alternative:** users can skip ICForge entirely and manage the canister themselves — but only if they have a CLI identity that owns cycles and are prepared to handle deploys, monitoring, and cycle top-ups on their own. See "Self-managed deployment" at the end of Phase 4.
 
 ## Working with the user
 
@@ -18,6 +20,7 @@ This skill is often driven by non-technical users. Follow these rules:
 - **Gather everything upfront.** Before starting, ask for: the app name, a one-line description, the GitHub owner/repo to use, and (when you reach the release step) a GitHub PAT. Don't drip-feed questions mid-workflow.
 - **Be upfront about costs.** Tell the user at the start: ICForge is pay-as-you-go — they top up their account (starting with $10 at signup) and ICForge manages the cycles, billing usage against that balance. They never buy cycles or ICP tokens, never set up a wallet, never create a canister.
 - **There is exactly one manual step** the user must do in a browser — tell them clearly when it arrives: sign up / log in at <https://icforge.dev> with GitHub, top up $10, and connect the repo (Phase 4b). Everything else you do for them.
+- **Default to ICForge; offer self-managed only on request.** If the user says they want to run the canister themselves and confirms they have an identity with cycles and can handle monitoring/top-ups, use the self-managed path at the end of Phase 4 instead — the ICForge steps and cost notes then don't apply.
 - **Handle secrets carefully.** Ask for the GitHub PAT only when needed, keep it in an environment variable for the session, and never write it into files, git config, or commit history.
 - **Report progress in plain language.** Say "your app is now live at …" — not raw command output. Use the checklist at the bottom to track and show progress.
 - **If a step fails, retry/diagnose yourself first** using the Pitfalls section before surfacing anything to the user.
@@ -235,7 +238,9 @@ icp network stop
 
 ## Phase 4: Deploy to Mainnet via ICForge
 
-**ICForge creates the canister on its own** the first time it builds the repo. Do NOT create a canister locally, do NOT run `icp deploy -e ic`, and do NOT touch cycles or wallets. The flow is: push the repo → link it on ICForge → ICForge creates the canister and deploys.
+**ICForge creates the canister on its own** the first time it builds the repo. On this path, do NOT create a canister locally, do NOT run `icp deploy -e ic`, and do NOT touch cycles or wallets. The flow is: push the repo → link it on ICForge → ICForge creates the canister and deploys.
+
+(Users who explicitly want to manage the canister themselves skip 4a–4c — see "Self-managed deployment" at the end of this phase.)
 
 ### 4a. Push the repo to GitHub
 
@@ -273,6 +278,22 @@ If the canister name doesn't resolve locally, pass the canister ID (from the ICF
 
 These are ordinary signed calls — they cost the caller nothing (canisters pay for their own execution on ICP), so no cycles are needed here either.
 
+### Alternative: self-managed deployment (skip ICForge)
+
+For users who want to run the canister themselves. Requirements: a CLI identity that **owns cycles**, and willingness to handle deploys, monitoring, and cycle top-ups on their own — there is no ICForge safety net on this path.
+
+```bash
+# Creates the canister (funded from the identity's cycles) and installs the wasm
+icp deploy <canister-name> -e ic
+
+# Subsequent code changes: build + upgrade manually
+icp deploy <canister-name> -e ic
+```
+
+- The 4a–4c ICForge steps don't apply; `icp.yaml` is still needed for local builds.
+- The user is responsible for monitoring canister health and cycle balance, and topping up before it runs dry — a canister that runs out of cycles gets uninstalled.
+- Live-mode configuration (4d), beacon (Phase 5), and app store registration (Phase 6 / byoc skill) work exactly the same — registration only needs namespace controllership, not ICForge.
+
 ## Phase 5: Enable Beacon
 
 In `src/main.mo`, uncomment/enable the beacon block:
@@ -285,7 +306,7 @@ transient let beaconContext : ?Beacon.BeaconContext = ?Beacon.init(
 );
 ```
 
-Push to main — ICForge will build and deploy. Verify in logs:
+Push to main — ICForge will build and deploy (self-managed: run `icp deploy <canister-name> -e ic` yourself). Verify in logs:
 
 ```bash
 icp canister logs <canister-name> -e ic
@@ -326,7 +347,7 @@ Look for `"freshness":"live-mainnet"` in responses.
 
 1. **MUST use Motoko recipe in icp.yaml** — Custom build scripts using `$(mops toolchain bin moc)` OOM in ICForge. The `@dfinity/motoko@v4.0.0` recipe handles everything automatically.
 2. **Recipe requires `args` field** — Even if empty, set `args: ""` or the recipe template fails with "Failed to access variable in strict mode".
-3. **Never create the canister locally** — no `icp deploy -e ic`, no cycles, no wallet. Link the repo and let ICForge create + deploy the canister. (Adding ICForge as a controller manually is only for pre-existing canisters — see the byoc skill.)
+3. **On the ICForge path, never create the canister locally** — no `icp deploy -e ic`, no cycles, no wallet. Link the repo and let ICForge create + deploy the canister. Local creation is only correct on the deliberate self-managed path (identity with cycles, user handles monitoring/top-ups).
 4. **ICForge needs account credit** — pay-as-you-go: new accounts top up $10 after signup, and ICForge bills managed cycles usage against the balance. Without credit, canister creation/deploys won't go through. Don't tell users the workflow is free.
 5. **ICForge may need multiple rebuild triggers** — Build dependency resolution can take several pushes. Use empty commits: `git commit --allow-empty -m "chore: trigger rebuild"`.
 6. **Registry type drift** — Always pull latest .did. Missing variants like `#External` cause IDL traps.
@@ -351,10 +372,8 @@ Look for `"freshness":"live-mainnet"` in responses.
 - [ ] `icp build` passes clean locally
 - [ ] Tests pass locally
 - [ ] Repo pushed to GitHub with `icp.yaml` on `main`
-- [ ] ICForge account created and topped up ($10 initial credit, user's manual step)
-- [ ] Repo linked on <https://icforge.dev> — ICForge creates the canister and runs the first deploy
-- [ ] Canister ID noted from the ICForge dashboard
-- [ ] Subsequent pushes to main trigger successful ICForge builds
+- [ ] ICForge path: account created and topped up ($10 initial credit), repo linked on <https://icforge.dev>, ICForge creates the canister and runs the first deploy, canister ID noted from the dashboard, subsequent pushes auto-deploy
+- [ ] Self-managed path (only if the user chose it): canister deployed with `icp deploy -e ic` from an identity with cycles; monitoring and cycle top-ups arranged
 - [ ] `set_live_mode(true)` called
 - [ ] `set_registry_canister_id` called
 - [ ] Logs show `Beacon submission timer started`

@@ -36,6 +36,7 @@ cp -r .claude/skills/build-prometheus-icp-mcp-server .claude/skills/byoc /path/t
 ## Notes
 
 - **No cycles, tokens, or manual canister creation needed** — ICForge creates and deploys the canister when you link the repo, manages the cycles, and bills usage against your prepaid balance (pay-as-you-go; $10 initial top-up at signup).
+- **ICForge is optional** — you can manage canisters yourself instead, provided your CLI identity owns cycles and you handle deploys, monitoring, and cycle top-ups on your own. App store registration works the same either way.
 - Namespace convention: `io.github.<owner>.<app-name>`
 - MCP URL format: `https://<canister-id>.icp0.io/mcp`
 - Certificate URL format: `https://prometheusprotocol.org/certificate/<namespace>`

@@ -19,7 +19,7 @@ This skill is often driven by non-technical users. Follow these rules:
 
 - **Gather everything upfront.** Ask for: app name, title, one-line description, publisher name, category, GitHub owner/repo, canister ID, and namespace. Confirm the namespace follows `io.github.<github-username>.<app-name>`.
 - **Ask for the GitHub PAT only at the release step** (Step 3). It needs Contents: Read/Write on the repo. Keep it in an environment variable for the session — never write it into files, git config, git remote URLs, or commit history.
-- **The only manual browser step** is logging into <https://icforge.dev> and connecting the repo (Step 4) — tell the user clearly when that moment arrives.
+- **The only manual browser step** is logging into <https://icforge.dev> and connecting the repo (Step 4, optional) — tell the user clearly when that moment arrives. Users who self-manage their canister have no manual browser steps at all.
 - **Report progress in plain language** and verify each step succeeded before moving on. If something fails, check the Errors and Pitfalls sections and retry before surfacing it to the user.
 
 ## Prerequisites
@@ -157,9 +157,14 @@ done
 
 Ensure prometheus.yml visual URLs match the resulting download URLs exactly, character-for-character.
 
-## Step 4: Link repo to ICForge for CI/CD
+## Step 4 (optional): Link repo to ICForge for CI/CD
 
-*(Skip this entire step if ICForge already manages the canister — e.g. you arrived here from the `build-prometheus-icp-mcp-server` skill, where ICForge created the canister itself and the repo is already linked.)*
+This step is entirely optional — BYOC registration (Step 5) does not require ICForge. Skip it if:
+
+- **ICForge already manages the canister** — e.g. you arrived here from the `build-prometheus-icp-mcp-server` skill, where ICForge created the canister itself and the repo is already linked; or
+- **The user manages the canister themselves** and wants to keep it that way — that's fine as long as their CLI identity owns cycles and they handle deploys, monitoring, and cycle top-ups on their own. Go straight to Step 5.
+
+Link ICForge only if the user wants push-to-main CI/CD with managed cycles (pay-as-you-go; $10 initial top-up for new accounts).
 
 ### Add ICForge as a controller
 
@@ -231,7 +236,7 @@ Then tell the user their app is live, with its listing at `https://prometheuspro
 1. **Always use latest app-store-cli** — older versions have bugs.
 2. **Manifest must include `submission` block** — CLI validates name, description, repo_url.
 3. **Namespace must already exist** — BYOC cannot create namespaces.
-4. **Add ICForge controller BEFORE linking repo** — or builds will fail with permission errors.
+4. **If using ICForge: add its controller BEFORE linking the repo** — or builds will fail with permission errors. (Not applicable for self-managed canisters that skip ICForge.)
 5. **Asset URLs must match exactly** — character-for-character with GitHub release download URLs.
 6. **Icons: no border radius, no white background** — the app store applies its own rounding. Fix with the 120% scale + center-crop trick, and always run the corner-darkness check before uploading.
 7. **ICForge may need multiple retriggers** — empty commits work fine.
@@ -248,8 +253,7 @@ Then tell the user their app is live, with its listing at `https://prometheuspro
 - [ ] Repo pushed to GitHub (token via env var, not in remote URL)
 - [ ] GitHub release created with assets uploaded
 - [ ] Visual URLs in prometheus.yml match release URLs
-- [ ] ICForge principal added as controller
-- [ ] Repo linked on <https://icforge.dev> (user's manual step)
-- [ ] ICForge build succeeds on push to main
+- [ ] If using ICForge CI/CD (optional): ICForge principal added as controller, repo linked on <https://icforge.dev>, build succeeds on push to main
+- [ ] If self-managed: identity owns cycles; deploys, monitoring, and top-ups are the user's responsibility
 - [ ] `app-store-cli byoc register` succeeded
 - [ ] On-chain `get_external_binding` confirms binding

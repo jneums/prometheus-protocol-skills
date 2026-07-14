@@ -9,14 +9,14 @@ End-to-end workflow: scaffold → implement tools → build → deploy via ICFor
 
 Uses `icp-cli` as the primary local toolchain and **ICForge** (<https://icforge.dev>) for automated mainnet CI/CD.
 
-**ICForge creates the canister and handles all mainnet deployment.** The user never touches cycles, ICP tokens, wallets, or canister creation themselves. The only cost in the whole workflow is a **one-time $10 top-up of their ICForge account after signing up** — that credit covers canister creation and deployments. Never run `icp deploy -e ic` or any manual canister creation — if a step appears to require cycles or a funded ICP identity, you've gone off-script.
+**ICForge creates the canister and handles all mainnet deployment.** The user never touches cycles, ICP tokens, wallets, or canister creation themselves — ICForge manages cycles for them and bills usage against a prepaid account balance (pay-as-you-go / top-up model). New accounts need an initial **$10 top-up after signing up**; canister creation, deploys, and running costs draw from that balance. Never run `icp deploy -e ic` or any manual canister creation — if a step appears to require cycles or a funded ICP identity, you've gone off-script.
 
 ## Working with the user
 
 This skill is often driven by non-technical users. Follow these rules:
 
 - **Gather everything upfront.** Before starting, ask for: the app name, a one-line description, the GitHub owner/repo to use, and (when you reach the release step) a GitHub PAT. Don't drip-feed questions mid-workflow.
-- **Be upfront about the one cost.** Tell the user at the start: ICForge requires a one-time $10 account top-up after signup — that's the only payment in the entire workflow. They never buy cycles or ICP tokens, never set up a wallet, never create a canister.
+- **Be upfront about costs.** Tell the user at the start: ICForge is pay-as-you-go — they top up their account (starting with $10 at signup) and ICForge manages the cycles, billing usage against that balance. They never buy cycles or ICP tokens, never set up a wallet, never create a canister.
 - **There is exactly one manual step** the user must do in a browser — tell them clearly when it arrives: sign up / log in at <https://icforge.dev> with GitHub, top up $10, and connect the repo (Phase 4b). Everything else you do for them.
 - **Handle secrets carefully.** Ask for the GitHub PAT only when needed, keep it in an environment variable for the session, and never write it into files, git config, or commit history.
 - **Report progress in plain language.** Say "your app is now live at …" — not raw command output. Use the checklist at the bottom to track and show progress.
@@ -247,7 +247,7 @@ Ask the user to:
 
 1. Go to <https://icforge.dev>
 2. Sign up / log in with GitHub
-3. **Top up their ICForge account with $10** (one-time, required for new accounts — this credit pays for canister creation and deployments)
+3. **Top up their ICForge account** ($10 initial top-up for new accounts — pay-as-you-go: canister creation, deploys, and running costs draw from this balance)
 4. Connect the repo
 
 ICForge auto-detects `icp.yaml`, **creates the mainnet canister itself** (paid from the account credit), and runs the first build + deploy. This is the only step you cannot do for them.
@@ -327,7 +327,7 @@ Look for `"freshness":"live-mainnet"` in responses.
 1. **MUST use Motoko recipe in icp.yaml** — Custom build scripts using `$(mops toolchain bin moc)` OOM in ICForge. The `@dfinity/motoko@v4.0.0` recipe handles everything automatically.
 2. **Recipe requires `args` field** — Even if empty, set `args: ""` or the recipe template fails with "Failed to access variable in strict mode".
 3. **Never create the canister locally** — no `icp deploy -e ic`, no cycles, no wallet. Link the repo and let ICForge create + deploy the canister. (Adding ICForge as a controller manually is only for pre-existing canisters — see the byoc skill.)
-4. **ICForge needs account credit** — new accounts must top up $10 (one-time) after signup; without it, canister creation/deploys won't go through. Don't tell users the workflow is completely free — this top-up is the one cost.
+4. **ICForge needs account credit** — pay-as-you-go: new accounts top up $10 after signup, and ICForge bills managed cycles usage against the balance. Without credit, canister creation/deploys won't go through. Don't tell users the workflow is free.
 5. **ICForge may need multiple rebuild triggers** — Build dependency resolution can take several pushes. Use empty commits: `git commit --allow-empty -m "chore: trigger rebuild"`.
 6. **Registry type drift** — Always pull latest .did. Missing variants like `#External` cause IDL traps.
 7. **icp-cli identity in headless env** — Use `--storage plaintext`; keyring fails without X11/dbus.
@@ -351,7 +351,7 @@ Look for `"freshness":"live-mainnet"` in responses.
 - [ ] `icp build` passes clean locally
 - [ ] Tests pass locally
 - [ ] Repo pushed to GitHub with `icp.yaml` on `main`
-- [ ] ICForge account created and topped up ($10 one-time, user's manual step)
+- [ ] ICForge account created and topped up ($10 initial credit, user's manual step)
 - [ ] Repo linked on <https://icforge.dev> — ICForge creates the canister and runs the first deploy
 - [ ] Canister ID noted from the ICForge dashboard
 - [ ] Subsequent pushes to main trigger successful ICForge builds

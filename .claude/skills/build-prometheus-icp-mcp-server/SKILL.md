@@ -9,17 +9,15 @@ End-to-end workflow: scaffold → implement tools → build → deploy via ICFor
 
 Uses `icp-cli` as the primary local toolchain and **ICForge** (<https://icforge.dev>) for automated mainnet CI/CD.
 
-**ICForge creates the canister and handles all mainnet deployment.** The user never needs cycles, ICP tokens, a wallet, or to create a canister themselves. Never run `icp deploy -e ic` or any manual canister creation — if a step appears to require cycles or a funded identity, you've gone off-script.
+**ICForge creates the canister and handles all mainnet deployment.** The user never touches cycles, ICP tokens, wallets, or canister creation themselves. The only cost in the whole workflow is a **one-time $10 top-up of their ICForge account after signing up** — that credit covers canister creation and deployments. Never run `icp deploy -e ic` or any manual canister creation — if a step appears to require cycles or a funded ICP identity, you've gone off-script.
 
 ## Working with the user
 
 This skill is often driven by non-technical users. Follow these rules:
 
 - **Gather everything upfront.** Before starting, ask for: the app name, a one-line description, the GitHub owner/repo to use, and (when you reach the release step) a GitHub PAT. Don't drip-feed questions mid-workflow.
-- **No cycles, tokens, or wallets — ever.** ICForge creates and deploys the canister. Do not ask the user to acquire cycles, fund an identity, or create a canister.
-- **There are exactly two manual steps** the user must do in a browser — tell them clearly when each arrives:
-  1. Log in at <https://icforge.dev> with GitHub and connect the repo (Phase 4b).
-  2. Nothing else. Everything else you do for them.
+- **Be upfront about the one cost.** Tell the user at the start: ICForge requires a one-time $10 account top-up after signup — that's the only payment in the entire workflow. They never buy cycles or ICP tokens, never set up a wallet, never create a canister.
+- **There is exactly one manual step** the user must do in a browser — tell them clearly when it arrives: sign up / log in at <https://icforge.dev> with GitHub, top up $10, and connect the repo (Phase 4b). Everything else you do for them.
 - **Handle secrets carefully.** Ask for the GitHub PAT only when needed, keep it in an environment variable for the session, and never write it into files, git config, or commit history.
 - **Report progress in plain language.** Say "your app is now live at …" — not raw command output. Use the checklist at the bottom to track and show progress.
 - **If a step fails, retry/diagnose yourself first** using the Pitfalls section before surfacing anything to the user.
@@ -243,15 +241,16 @@ icp network stop
 
 `icp.yaml` (with the `@dfinity/motoko@v4.0.0` recipe) must be on `main` before linking — ICForge reads it to know what to build.
 
-### 4b. Link repo on ICForge (user's manual step)
+### 4b. Sign up, top up, and link repo on ICForge (user's manual step)
 
 Ask the user to:
 
 1. Go to <https://icforge.dev>
-2. Log in with GitHub
-3. Connect the repo
+2. Sign up / log in with GitHub
+3. **Top up their ICForge account with $10** (one-time, required for new accounts — this credit pays for canister creation and deployments)
+4. Connect the repo
 
-ICForge auto-detects `icp.yaml`, **creates the mainnet canister itself** (ICForge covers canister creation and cycles), and runs the first build + deploy. This is the only step you cannot do for them.
+ICForge auto-detects `icp.yaml`, **creates the mainnet canister itself** (paid from the account credit), and runs the first build + deploy. This is the only step you cannot do for them.
 
 When you need the canister ID (MCP URL, config calls, registration), read it from the ICForge dashboard or build output.
 
@@ -328,13 +327,14 @@ Look for `"freshness":"live-mainnet"` in responses.
 1. **MUST use Motoko recipe in icp.yaml** — Custom build scripts using `$(mops toolchain bin moc)` OOM in ICForge. The `@dfinity/motoko@v4.0.0` recipe handles everything automatically.
 2. **Recipe requires `args` field** — Even if empty, set `args: ""` or the recipe template fails with "Failed to access variable in strict mode".
 3. **Never create the canister locally** — no `icp deploy -e ic`, no cycles, no wallet. Link the repo and let ICForge create + deploy the canister. (Adding ICForge as a controller manually is only for pre-existing canisters — see the byoc skill.)
-4. **ICForge may need multiple rebuild triggers** — Build dependency resolution can take several pushes. Use empty commits: `git commit --allow-empty -m "chore: trigger rebuild"`.
-5. **Registry type drift** — Always pull latest .did. Missing variants like `#External` cause IDL traps.
-6. **icp-cli identity in headless env** — Use `--storage plaintext`; keyring fails without X11/dbus.
-7. **Keep dfx.json** — mops and local tooling still reference it.
-8. **Beacon must be enabled** — Scaffold has it commented out. Uncomment before deploy.
-9. **Don't derive MCP URL from namespace** — Use actual canister ID (from the ICForge dashboard).
-10. **Asset/registration pitfalls** — see the `byoc` skill's Pitfalls section (icon corners, URL matching, manifest requirements).
+4. **ICForge needs account credit** — new accounts must top up $10 (one-time) after signup; without it, canister creation/deploys won't go through. Don't tell users the workflow is completely free — this top-up is the one cost.
+5. **ICForge may need multiple rebuild triggers** — Build dependency resolution can take several pushes. Use empty commits: `git commit --allow-empty -m "chore: trigger rebuild"`.
+6. **Registry type drift** — Always pull latest .did. Missing variants like `#External` cause IDL traps.
+7. **icp-cli identity in headless env** — Use `--storage plaintext`; keyring fails without X11/dbus.
+8. **Keep dfx.json** — mops and local tooling still reference it.
+9. **Beacon must be enabled** — Scaffold has it commented out. Uncomment before deploy.
+10. **Don't derive MCP URL from namespace** — Use actual canister ID (from the ICForge dashboard).
+11. **Asset/registration pitfalls** — see the `byoc` skill's Pitfalls section (icon corners, URL matching, manifest requirements).
 
 ## Complete Checklist
 
@@ -351,7 +351,8 @@ Look for `"freshness":"live-mainnet"` in responses.
 - [ ] `icp build` passes clean locally
 - [ ] Tests pass locally
 - [ ] Repo pushed to GitHub with `icp.yaml` on `main`
-- [ ] Repo linked on <https://icforge.dev> (user's manual step) — ICForge creates the canister and runs the first deploy
+- [ ] ICForge account created and topped up ($10 one-time, user's manual step)
+- [ ] Repo linked on <https://icforge.dev> — ICForge creates the canister and runs the first deploy
 - [ ] Canister ID noted from the ICForge dashboard
 - [ ] Subsequent pushes to main trigger successful ICForge builds
 - [ ] `set_live_mode(true)` called

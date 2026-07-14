@@ -144,8 +144,6 @@ out/
 .icp/
 ```
 
-Note: the whole `.icp/` directory can be ignored — ICForge preserves the canister ID mapping itself; nothing under `.icp/` needs to be committed.
-
 ## Phase 2: Implement Tools
 
 ### Architecture: Adapter pattern
@@ -255,7 +253,7 @@ Ask the user to:
 
 ICForge auto-detects `icp.yaml`, **creates the mainnet canister itself** (ICForge covers canister creation and cycles), and runs the first build + deploy. This is the only step you cannot do for them.
 
-ICForge preserves the canister ID mapping itself — do not create or commit `.icp/data/mappings/ic.ids.json`. When you need the canister ID (MCP URL, config calls, registration), read it from the ICForge dashboard or build output.
+When you need the canister ID (MCP URL, config calls, registration), read it from the ICForge dashboard or build output.
 
 ### 4c. Pushes auto-deploy from here on
 
@@ -272,7 +270,7 @@ icp canister call <canister-name> set_live_mode '(true)' -e ic
 icp canister call <canister-name> set_registry_canister_id '(principal "grhdx-gqaaa-aaaai-q32va-cai")' -e ic
 ```
 
-If the canister name doesn't resolve locally (the ID mapping lives in ICForge, not the repo), pass the canister ID directly instead of the name.
+If the canister name doesn't resolve locally, pass the canister ID (from the ICForge dashboard) directly instead of the name.
 
 These are ordinary signed calls — they cost the caller nothing (canisters pay for their own execution on ICP), so no cycles are needed here either.
 
@@ -333,11 +331,10 @@ Look for `"freshness":"live-mainnet"` in responses.
 4. **ICForge may need multiple rebuild triggers** — Build dependency resolution can take several pushes. Use empty commits: `git commit --allow-empty -m "chore: trigger rebuild"`.
 5. **Registry type drift** — Always pull latest .did. Missing variants like `#External` cause IDL traps.
 6. **icp-cli identity in headless env** — Use `--storage plaintext`; keyring fails without X11/dbus.
-7. **Don't commit canister ID mappings** — ICForge preserves `ic.ids.json` itself; gitignore the whole `.icp/` directory. Get the canister ID from the ICForge dashboard when needed.
-8. **Keep dfx.json** — mops and local tooling still reference it.
-9. **Beacon must be enabled** — Scaffold has it commented out. Uncomment before deploy.
-10. **Don't derive MCP URL from namespace** — Use actual canister ID.
-11. **Asset/registration pitfalls** — see the `byoc` skill's Pitfalls section (icon corners, URL matching, manifest requirements).
+7. **Keep dfx.json** — mops and local tooling still reference it.
+8. **Beacon must be enabled** — Scaffold has it commented out. Uncomment before deploy.
+9. **Don't derive MCP URL from namespace** — Use actual canister ID (from the ICForge dashboard).
+10. **Asset/registration pitfalls** — see the `byoc` skill's Pitfalls section (icon corners, URL matching, manifest requirements).
 
 ## Complete Checklist
 
@@ -355,7 +352,7 @@ Look for `"freshness":"live-mainnet"` in responses.
 - [ ] Tests pass locally
 - [ ] Repo pushed to GitHub with `icp.yaml` on `main`
 - [ ] Repo linked on <https://icforge.dev> (user's manual step) — ICForge creates the canister and runs the first deploy
-- [ ] Canister ID noted from the ICForge dashboard (nothing to commit — ICForge preserves the mapping)
+- [ ] Canister ID noted from the ICForge dashboard
 - [ ] Subsequent pushes to main trigger successful ICForge builds
 - [ ] `set_live_mode(true)` called
 - [ ] `set_registry_canister_id` called
